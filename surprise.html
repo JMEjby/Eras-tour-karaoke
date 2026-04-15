@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surprise Song Vote — Eras Karaoke ✨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#070710; --surface:rgba(255,255,255,0.05); --border:rgba(255,255,255,0.10);
+      --gold:#e4c76b; --text:#f0ece0; --text-dim:rgba(240,236,224,0.55);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; font-weight:300; min-height:100vh; overflow-x:hidden; }
+    #starfield { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+
+    nav { position:sticky; top:0; z-index:100; background:rgba(7,7,16,0.88); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; justify-content:space-between; height:60px; gap:1rem; }
+    .nav-logo { font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:400; letter-spacing:0.05em; color:var(--gold); text-decoration:none; flex-shrink:0; }
+    .nav-links { display:flex; gap:0.3rem; }
+    .nav-links a { color:var(--text-dim); text-decoration:none; font-size:0.85rem; font-weight:400; letter-spacing:0.04em; padding:0.4rem 0.9rem; border-radius:20px; transition:all 0.2s; }
+    .nav-links a:hover,.nav-links a.active { color:var(--text); background:var(--surface); }
+    .nav-links a.active { color:var(--gold); }
+
+    .sync-badge { display:flex; align-items:center; gap:0.4rem; font-size:0.72rem; font-weight:500; letter-spacing:0.06em; padding:0.3rem 0.7rem; border-radius:12px; border:1px solid; flex-shrink:0; transition:all 0.3s; }
+    .sync-badge.ok      { color:#5cc896; border-color:rgba(92,200,150,0.35); background:rgba(92,200,150,0.08); }
+    .sync-badge.syncing { color:var(--gold); border-color:rgba(228,199,107,0.35); background:rgba(228,199,107,0.08); }
+    .sync-badge.offline { color:#e05870; border-color:rgba(224,88,112,0.35); background:rgba(224,88,112,0.08); }
+    .sync-badge.setup   { color:var(--text-dim); border-color:var(--border); background:var(--surface); }
+    .sync-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+    .sync-dot.pulse { animation:pulse 1s ease-in-out infinite; }
+
+    .setup-banner { position:relative; z-index:2; background:rgba(228,199,107,0.07); border-bottom:1px solid rgba(228,199,107,0.22); padding:0.9rem 2rem; display:flex; align-items:flex-start; gap:1rem; flex-wrap:wrap; }
+    .setup-banner.hidden { display:none; }
+    .setup-banner-text { flex:1; font-size:0.82rem; color:var(--gold); line-height:1.5; }
+    .setup-banner-text strong { font-weight:600; }
+    .setup-banner-text code { background:rgba(228,199,107,0.15); padding:0.1rem 0.4rem; border-radius:4px; font-family:monospace; font-size:0.78rem; }
+
+    .page-header { position:relative; z-index:1; text-align:center; padding:4rem 2rem 2rem; }
+    .page-eyebrow { font-size:0.72rem; letter-spacing:0.22em; text-transform:uppercase; color:var(--gold); margin-bottom:0.8rem; }
+    .page-title { font-family:'Cormorant Garamond',serif; font-size:clamp(2.5rem,7vw,4.5rem); font-weight:300; margin-bottom:0.5rem; }
+    .page-title em { font-style:italic; color:var(--gold); }
+    .page-desc { font-size:0.95rem; color:var(--text-dim); max-width:600px; margin:0 auto; line-height:1.6; }
+
+    .content { position:relative; z-index:1; max-width:860px; margin:0 auto; padding:2rem 1.5rem 5rem; }
+
+    .top-picks { background:rgba(228,199,107,0.06); border:1px solid rgba(228,199,107,0.2); border-radius:16px; padding:1.5rem; margin-bottom:2rem; }
+    .top-title  { font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:400; color:var(--gold); margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; }
+    .top-list   { display:flex; flex-direction:column; gap:0.6rem; }
+    .top-item   { display:flex; align-items:center; gap:1rem; padding:0.6rem 0.8rem; border-radius:10px; background:rgba(255,255,255,0.03); transition:background 0.2s; }
+    .top-item:hover { background:rgba(255,255,255,0.05); }
+    .top-rank   { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:300; color:var(--gold); opacity:0.55; min-width:2rem; text-align:center; }
+    .top-info   { flex:1; }
+    .top-song   { font-size:0.95rem; font-weight:400; }
+    .top-album  { font-size:0.75rem; color:var(--text-dim); margin-top:0.1rem; }
+    .top-votes  { font-size:0.8rem; font-weight:500; color:var(--gold); }
+    .top-empty  { font-size:0.85rem; color:rgba(240,236,224,0.3); font-style:italic; }
+    .top-bar-wrap { margin-top:0.4rem; }
+    .top-bar    { height:3px; border-radius:2px; background:var(--gold); opacity:0.4; transition:width 0.4s; }
+
+    .controls { display:flex; flex-wrap:wrap; gap:0.8rem; align-items:center; margin-bottom:1.5rem; }
+    .search-wrap { flex:1; min-width:200px; position:relative; }
+    .search-input { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:0.65rem 1rem 0.65rem 2.4rem; color:var(--text); font-family:'Outfit',sans-serif; font-size:0.9rem; outline:none; transition:border-color 0.2s; }
+    .search-input:focus { border-color:rgba(228,199,107,0.4); }
+    .search-input::placeholder { color:var(--text-dim); }
+    .search-icon { position:absolute; left:0.85rem; top:50%; transform:translateY(-50%); opacity:0.4; }
+    .btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.55rem 1.2rem; border-radius:20px; font-family:'Outfit',sans-serif; font-size:0.82rem; font-weight:500; letter-spacing:0.06em; border:none; cursor:pointer; transition:all 0.2s; }
+    .btn-ghost  { background:var(--surface); border:1px solid var(--border); color:var(--text-dim); }
+    .btn-ghost:hover  { color:var(--text); border-color:rgba(255,255,255,0.25); }
+    .btn-danger { background:rgba(224,88,112,0.12); border:1px solid rgba(224,88,112,0.3); color:#e05870; }
+    .btn-danger:hover { background:rgba(224,88,112,0.22); }
+
+    .album-filters { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:2rem; }
+    .album-chip { padding:0.35rem 0.85rem; border-radius:16px; font-size:0.78rem; font-weight:400; border:1px solid var(--border); color:var(--text-dim); cursor:pointer; transition:all 0.2s; background:transparent; }
+    .album-chip:hover { border-color:rgba(228,199,107,0.35); color:var(--text); }
+    .album-chip.active { color:#070710; font-weight:500; }
+
+    .album-section { margin-bottom:2.5rem; }
+    .album-header  { display:flex; align-items:center; gap:0.8rem; padding:0.9rem 1.1rem; border-radius:12px 12px 0 0; border:1px solid var(--border); border-bottom:none; background:rgba(255,255,255,0.03); }
+    .album-name    { font-family:'Cormorant Garamond',serif; font-size:1.3rem; font-weight:400; }
+    .album-year    { font-size:0.78rem; color:var(--text-dim); margin-left:auto; }
+    .songs-grid    { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); border:1px solid var(--border); border-top:none; border-radius:0 0 12px 12px; overflow:hidden; }
+    .song-tile     { display:flex; align-items:center; gap:0.7rem; padding:0.75rem 1rem; border-bottom:1px solid rgba(255,255,255,0.04); border-right:1px solid rgba(255,255,255,0.04); transition:background 0.2s; }
+    .song-tile:hover  { background:rgba(255,255,255,0.03); }
+    .song-tile.voted  { background:rgba(228,199,107,0.07); }
+    .song-tile-info   { flex:1; min-width:0; }
+    .song-tile-title  { font-size:0.88rem; font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .song-tile-sub    { font-size:0.65rem; color:var(--text-dim); margin-top:0.15rem; }
+    .vote-star-btn {
+      display:flex; align-items:center; gap:0.3rem; padding:0.3rem 0.65rem; border-radius:16px;
+      font-family:'Outfit',sans-serif; font-size:0.75rem; font-weight:500;
+      border:1px solid rgba(228,199,107,0.3); color:var(--gold); cursor:pointer;
+      background:transparent; flex-shrink:0; transition:all 0.2s;
+    }
+    .vote-star-btn:hover,.vote-star-btn.voted { background:rgba(228,199,107,0.18); border-color:var(--gold); }
+    .vote-star-btn.voted { font-weight:600; }
+    .vote-star-count { font-size:0.68rem; opacity:0.85; }
+    @keyframes bump { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+    .bump { animation:bump 0.2s ease; }
+
+    .no-results { text-align:center; padding:3rem; color:var(--text-dim); font-style:italic; }
+    footer { position:relative; z-index:1; text-align:center; padding:2rem; color:var(--text-dim); font-size:0.8rem; border-top:1px solid var(--border); }
+
+    @media(max-width:600px){
+      nav { padding:0 0.8rem; gap:0.5rem; }
+      .nav-links { display:none; }
+      .songs-grid { grid-template-columns:1fr; }
+      .controls { flex-direction:column; align-items:stretch; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+
+<div class="setup-banner" id="setup-banner">
+  <div>⚙️</div>
+  <div class="setup-banner-text">
+    <strong>Global sync not configured.</strong> Open this file in a text editor, find the <code>CONFIG</code> block near the top of the &lt;script&gt; tag, and paste in your <code>BIN_ID</code> and <code>API_KEY</code>. See <strong>README.md</strong> for the 3-step JSONBin setup. Until then, votes only save in this browser.
+  </div>
+</div>
+
+<nav>
+  <a class="nav-logo" href="index.html">✦ Eras Karaoke</a>
+  <div class="nav-links">
+    <a href="index.html">Home</a>
+    <a href="setlist.html">Setlist Vote</a>
+    <a href="surprise.html" class="active">Surprise Song</a>
+  </div>
+  <div class="sync-badge setup" id="sync-badge">
+    <div class="sync-dot" id="sync-dot"></div>
+    <span id="sync-label">Local only</span>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="page-eyebrow">✦ The wildcard of the night ✦</div>
+  <h1 class="page-title">The <em>Surprise</em> Song</h1>
+  <p class="page-desc">Every Eras Tour show ended with two unannounced surprise songs from Taylor's entire catalogue. Vote for the deep cut you want at your karaoke night — votes accumulate from all devices!</p>
+</div>
+
+<div class="content">
+
+  <div class="top-picks">
+    <div class="top-title">
+      <span>⭐ Top Picks Right Now</span>
+      <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem" onclick="syncNow()">🔄 Sync</button>
+    </div>
+    <div class="top-list" id="top-list">
+      <div class="top-empty">No votes yet — be the first to pick!</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="search-input" type="text" placeholder="Search any Taylor Swift song…" oninput="filterSongs()">
+    </div>
+    <button class="btn btn-ghost"  onclick="clearSearch()">✕ Clear</button>
+    <button class="btn btn-danger" onclick="resetVotes()">🔄 Reset Votes</button>
+  </div>
+
+  <div class="album-filters" id="album-filters"></div>
+  <div id="songs-container"></div>
+</div>
+
+<footer><p id="footer-note">Votes sync globally via JSONBin · Auto-refreshes every 20 seconds</p></footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  ✦  CONFIG — Paste your JSONBin credentials below  ✦
+//  See README.md for the 3-step setup (takes ~2 minutes)
+// ═══════════════════════════════════════════════════════════════
+const BIN_ID  = '';   // e.g. '66a1b2c3d4e5f6a7b8c9d0e1'
+const API_KEY = '';   // e.g. '$2a$10$ABCDEFGHIJKLMNOPQRSTUVWXabcdefghijklmn'
+// ═══════════════════════════════════════════════════════════════
+
+const CLOUD   = BIN_ID.length > 0 && API_KEY.length > 0;
+const LOC_KEY = 'erasKaraoke_surprise_v2';
+const POLL_MS = 20000;
+
+const ALBUMS = [
+  { name:"Taylor Swift", year:2006, emoji:"🎸", color:"#b8a678",
+    songs:["Tim McGraw","Teardrops on My Guitar","Our Song","Picture to Burn","Should've Said No","Cold As You","The Outside","A Place in This World","The Best Day","Mary's Song (Oh My My My)","Stay Beautiful","Tied Together with a Smile"] },
+  { name:"Fearless", year:2008, emoji:"✨", color:"#e8c44a",
+    songs:["Fifteen","White Horse","The Best Day","Change","Breathe","The Way I Loved You","Tell Me Why","Forever & Always","You're Not Sorry","The Other Side of the Door","Jump Then Fall","Untouchable","Come In With the Rain","SuperStar","The Other Side of the Door"] },
+  { name:"Speak Now", year:2010, emoji:"🌙", color:"#b580d4",
+    songs:["Back to December","Speak Now","Dear John","Mean","The Story of Us","Long Live","Ours","Haunted","Last Kiss","Never Grow Up","Innocent","Superman","Enchanted (Speak Now ver.)","Better Than Revenge","Sparks Fly"] },
+  { name:"Red", year:2012, emoji:"🍂", color:"#d95050",
+    songs:["State of Grace","Red","Treacherous","Everything Has Changed","Begin Again","Holy Ground","Come Back...Be Here","Sad Beautiful Tragic","The Last Time","Stay Stay Stay","The Moment I Knew","Starlight","I Almost Do","Girl at Home","Treacherous","All Too Well"] },
+  { name:"1989", year:2014, emoji:"🏙️", color:"#7ec8e8",
+    songs:["Welcome to New York","Clean","How You Get The Girl","This Love","New Romantics","Out of the Woods","All You Had to Do Was Stay","I Wish You Would","You Are in Love","Wonderland","You're in Love with Your Best Friend"] },
+  { name:"reputation", year:2017, emoji:"🐍", color:"#aaaaaa",
+    songs:["Gorgeous","Call It What You Want","New Year's Day","Getaway Car","Dancing With Our Hands Tied","End Game","King of My Heart","Dress","So It Goes...","This Is Why We Can't Have Nice Things","I Did Something Bad","Quiet When I'm Coming Home"] },
+  { name:"Lover", year:2019, emoji:"💗", color:"#ff6b9d",
+    songs:["I Forgot That You Existed","Death By A Thousand Cuts","London Boy","Cornelia Street","False God","Paper Rings","The Archer","ME!","Soon You'll Get Better","Daylight","It's Nice to Have a Friend","I Think He Knows","Afterglow","Call It What You Want (Lover ver.)"] },
+  { name:"folklore", year:2020, emoji:"🌲", color:"#9db8c7",
+    songs:["seven","peace","hoax","exile","this is me trying","epiphany","mad woman","mirrorball","the lakes","invisible string","the 1 (acoustic)"] },
+  { name:"evermore", year:2020, emoji:"🍁", color:"#c49a6c",
+    songs:["willow","cowboy like me","long story short","ivy","no body no crime","happiness","dorothea","coney island","evermore","right where you left me","it's time to go","marjorie"] },
+  { name:"Midnights", year:2022, emoji:"🌌", color:"#9090dd",
+    songs:["Question...?","Hits Different","Labyrinth","Sweet Nothing","Glitch","High Infidelity","Snow on the Beach","Would've Could've Should've","Dear Reader","Bigger Than The Whole Sky","Paris","You're Losing Me (From the Vault)","Karma (feat. Ice Spice)"] },
+  { name:"The Tortured Poets Department", year:2024, emoji:"🥀", color:"#d4c0e0",
+    songs:["But Daddy I Love Him","So Long, London","Guilty as Sin?","Fresh Out the Slammer","Florida!!!","The Prophecy","Cassandra","Peter","The Bolter","Robin","The Black Dog","The Smallest Man Who Ever Lived","Clara Bow","loml","The Albatross","Chloe or Sam or Sophia or Marcus","imgonnagetyouback","The Manuscript"] },
+];
+
+// ── State ─────────────────────────────────────────────
+// votes[key] = number
+let votes     = {};
+let busy      = false;
+let activeAlb = 'all';
+let searchQ   = '';
+
+const vKey = (alb,song) => alb+'||'+song;
+const sid  = k => k.replace(/[^a-z0-9]/gi,'_');
+
+// ── Local ─────────────────────────────────────────────
+const lSave = () => { try { localStorage.setItem(LOC_KEY, JSON.stringify(votes)); } catch(e){} };
+const lLoad = () => { try { votes = JSON.parse(localStorage.getItem(LOC_KEY))||{}; } catch(e){ votes={}; } };
+
+// ── JSONBin ───────────────────────────────────────────
+const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const HDR = { 'Content-Type':'application/json', 'X-Master-Key': API_KEY };
+
+async function cLoad() {
+  const r = await fetch(BIN_URL+'/latest', {headers:HDR});
+  if (!r.ok) throw new Error(r.status);
+  return ((await r.json()).record || {}).surprise || {};
+}
+async function cSave(data) {
+  const r0 = await fetch(BIN_URL+'/latest', {headers:HDR});
+  if (!r0.ok) throw new Error(r0.status);
+  const rec = (await r0.json()).record || {};
+  rec.surprise = data;
+  const r1 = await fetch(BIN_URL, {method:'PUT', headers:HDR, body:JSON.stringify(rec)});
+  if (!r1.ok) throw new Error(r1.status);
+}
+
+// ── Sync UI ───────────────────────────────────────────
+function setSync(s) {
+  const b=document.getElementById('sync-badge'),d=document.getElementById('sync-dot'),l=document.getElementById('sync-label');
+  b.className='sync-badge '+s;
+  d.className='sync-dot'+(s==='syncing'?' pulse':'');
+  l.textContent={ok:'Synced',syncing:'Syncing…',offline:'Offline',setup:'Local only'}[s];
+}
+
+// ── Load ──────────────────────────────────────────────
+async function loadVotes(quiet=false) {
+  if (busy) return;
+  busy=true;
+  if (!quiet) setSync('syncing');
+  try {
+    if (CLOUD) { votes=await cLoad(); lSave(); setSync('ok'); }
+    else        { lLoad(); setSync('setup'); }
+  } catch(e) { console.warn(e); lLoad(); setSync('offline'); }
+  busy=false;
+  refreshAllTiles();
+  updateTopPicks();
+}
+
+// ── Vote ──────────────────────────────────────────────
+async function castVote(albName, song) {
+  const k=vKey(albName,song);
+  votes[k]=(votes[k]||0)+1;
+  lSave();
+  // Update tile
+  const tile=document.getElementById('tile-'+sid(k));
+  if (tile) {
+    tile.classList.add('voted');
+    const btn=tile.querySelector('.vote-star-btn'); if(btn) btn.classList.add('voted');
+    const vc=document.getElementById('vc-'+sid(k));
+    if(vc){ vc.textContent=votes[k]; vc.classList.remove('bump'); void vc.offsetWidth; vc.classList.add('bump'); }
+  }
+  updateTopPicks();
+  if (CLOUD) {
+    setSync('syncing');
+    try { await cSave(votes); setSync('ok'); } catch(e){ console.warn(e); setSync('offline'); }
+  }
+}
+
+function refreshAllTiles() {
+  ALBUMS.forEach(alb=>alb.songs.forEach(song=>{
+    const k=vKey(alb.name,song), cnt=votes[k]||0;
+    const tile=document.getElementById('tile-'+sid(k)); if(!tile) return;
+    tile.classList.toggle('voted',cnt>0);
+    const btn=tile.querySelector('.vote-star-btn'); if(btn) btn.classList.toggle('voted',cnt>0);
+    const vc=document.getElementById('vc-'+sid(k)); if(vc) vc.textContent=cnt||0;
+  }));
+}
+
+// ── Top picks ─────────────────────────────────────────
+function updateTopPicks() {
+  const sorted=Object.entries(votes).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const el=document.getElementById('top-list');
+  if (!sorted.length) { el.innerHTML='<div class="top-empty">No votes yet — be the first to pick!</div>'; return; }
+  const max=sorted[0][1];
+  el.innerHTML=sorted.map(([key,count],i)=>{
+    const [albName,...rest]=key.split('||'); const song=rest.join('||');
+    const alb=ALBUMS.find(a=>a.name===albName);
+    const color=alb?alb.color:'var(--gold)';
+    const rank=['🥇','🥈','🥉','4️⃣','5️⃣'][i];
+    const barW=Math.round((count/max)*100);
+    return `
+      <div class="top-item">
+        <div class="top-rank">${rank}</div>
+        <div class="top-info">
+          <div class="top-song">${alb?alb.emoji:''} ${song}</div>
+          <div class="top-album" style="color:${color}90">${albName} · ${count} vote${count!==1?'s':''}</div>
+          <div class="top-bar-wrap"><div class="top-bar" style="width:${barW}%;background:${color}"></div></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Build filters ─────────────────────────────────────
+function buildFilters() {
+  const w=document.getElementById('album-filters');
+  const make=(label,val,color,bg)=>{
+    const b=document.createElement('button');
+    b.className='album-chip'+(val==='all'?' active':'');
+    b.dataset.album=val; b.textContent=label;
+    if (val==='all'&&activeAlb==='all') { b.style.background=color;b.style.borderColor=color;b.style.color='#070710'; }
+    b.onclick=()=>setAlbum(val);
+    w.appendChild(b);
+  };
+  make('✦ All Albums','all','var(--gold)');
+  ALBUMS.forEach(a=>make(`${a.emoji} ${a.name}`,a.name,a.color));
+}
+
+function setAlbum(val) {
+  activeAlb=val;
+  document.querySelectorAll('.album-chip').forEach(c=>{
+    const isA=c.dataset.album===val;
+    c.classList.toggle('active',isA);
+    const alb=ALBUMS.find(a=>a.name===c.dataset.album);
+    const col=alb?alb.color:'var(--gold)';
+    if(isA){c.style.background=col;c.style.borderColor=col;c.style.color='#070710';}
+    else{c.style.background='transparent';c.style.borderColor='var(--border)';c.style.color='var(--text-dim)';}
+  });
+  renderSongs();
+}
+
+// ── Render songs ──────────────────────────────────────
+function renderSongs() {
+  const c=document.getElementById('songs-container'); c.innerHTML='';
+  const q=searchQ.toLowerCase(); let any=false;
+  ALBUMS.forEach(alb=>{
+    if (activeAlb!=='all'&&activeAlb!==alb.name) return;
+    const filtered=alb.songs.filter(s=>!q||s.toLowerCase().includes(q)||alb.name.toLowerCase().includes(q));
+    if (!filtered.length) return;
+    any=true;
+    const sec=document.createElement('div'); sec.className='album-section';
+    sec.innerHTML=`
+      <div class="album-header" style="border-color:${alb.color}55;background:${alb.color}0d">
+        <span style="font-size:1.3rem">${alb.emoji}</span>
+        <span class="album-name" style="color:${alb.color}">${alb.name}</span>
+        <span class="album-year">${alb.year}</span>
+      </div>
+      <div class="songs-grid" id="sg-${sid(alb.name)}"></div>`;
+    c.appendChild(sec);
+    const grid=document.getElementById('sg-'+sid(alb.name));
+    filtered.forEach(song=>{
+      const k=vKey(alb.name,song), cnt=votes[k]||0;
+      const tile=document.createElement('div');
+      tile.className='song-tile'+(cnt>0?' voted':'');
+      tile.id='tile-'+sid(k);
+      tile.innerHTML=`
+        <div class="song-tile-info">
+          <div class="song-tile-title" title="${song}">${song}</div>
+        </div>
+        <button class="vote-star-btn ${cnt>0?'voted':''}"
+          onclick="castVote('${alb.name.replace(/'/g,"\\'")}','${song.replace(/'/g,"\\'")}')">
+          ⭐ <span class="vote-star-count" id="vc-${sid(k)}">${cnt}</span>
+        </button>`;
+      grid.appendChild(tile);
+    });
+  });
+  if (!any) c.innerHTML='<div class="no-results">No songs found. Try a different search or album!</div>';
+}
+
+function filterSongs() { searchQ=document.getElementById('search-input').value; renderSongs(); }
+function clearSearch()  { document.getElementById('search-input').value=''; searchQ=''; renderSongs(); }
+async function syncNow() { await loadVotes(); }
+
+async function resetVotes() {
+  if (!confirm('Reset ALL surprise song votes for everyone? Cannot be undone.')) return;
+  votes={}; lSave();
+  if (CLOUD){ setSync('syncing'); try{await cSave({});setSync('ok');}catch(e){setSync('offline');} }
+  renderSongs(); updateTopPicks();
+}
+
+// ── Init ──────────────────────────────────────────────
+if (CLOUD) {
+  document.getElementById('setup-banner').classList.add('hidden');
+} else {
+  setSync('setup');
+  document.getElementById('footer-note').textContent='Votes saved to this browser only · Add JSONBin credentials for global sync';
+}
+buildFilters();
+loadVotes().then(()=>renderSongs());
+setInterval(()=>loadVotes(true).then(()=>renderSongs()), POLL_MS);
+
+// ── Stars ─────────────────────────────────────────────
+(function(){
+  const c=document.getElementById('starfield'),x=c.getContext('2d'); let W,H,s=[];
+  function r(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  function init(){s=[];const n=Math.floor(W*H/7000);for(let i=0;i<n;i++)s.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.1+0.2,a:Math.random()*0.6+0.1,sp:Math.random()*0.3+0.05,o:Math.random()*Math.PI*2});}
+  let t=0;function d(){x.clearRect(0,0,W,H);t+=0.01;s.forEach(p=>{const a=p.a*(0.5+0.5*Math.sin(t*p.sp+p.o));x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fillStyle=`rgba(255,255,240,${a})`;x.fill();});requestAnimationFrame(d);}
+  r();init();d();addEventListener('resize',()=>{r();init();});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Eras Tour — Karaoke Night ✨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070710;
+      --surface: rgba(255,255,255,0.05);
+      --border: rgba(255,255,255,0.10);
+      --gold: #e4c76b;
+      --gold-light: #f5e4a0;
+      --pink: #f06896;
+      --lavender: #c4aff0;
+      --teal: #5cc8c8;
+      --text: #f0ece0;
+      --text-dim: rgba(240,236,224,0.55);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ---- CANVAS STARS ---- */
+    #starfield {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ---- NAVBAR ---- */
+    nav {
+      position: sticky; top:0; z-index:100;
+      background: rgba(7,7,16,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.2rem; font-weight:400; letter-spacing: 0.05em;
+      color: var(--gold); text-decoration: none;
+    }
+    .nav-links { display:flex; gap:0.3rem; }
+    .nav-links a {
+      color: var(--text-dim); text-decoration:none;
+      font-size:0.85rem; font-weight:400; letter-spacing:0.04em;
+      padding: 0.4rem 0.9rem; border-radius: 20px;
+      transition: all 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--text); background: var(--surface);
+    }
+    .nav-links a.active { color: var(--gold); }
+
+    /* ---- HERO ---- */
+    .hero {
+      position: relative; z-index:1;
+      text-align:center;
+      padding: 7rem 2rem 5rem;
+    }
+    .hero-eyebrow {
+      font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 1.2rem;
+      opacity: 0; animation: fadeUp 0.8s 0.2s forwards;
+    }
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(3rem, 9vw, 6.5rem);
+      font-weight: 300; line-height: 1;
+      margin-bottom: 0.3rem;
+      opacity: 0; animation: fadeUp 0.8s 0.35s forwards;
+    }
+    .hero-title em {
+      font-style: italic; color: var(--gold);
+    }
+    .hero-sub {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.2rem, 3vw, 1.8rem);
+      font-style: italic; color: var(--text-dim);
+      margin-bottom: 2.5rem;
+      opacity: 0; animation: fadeUp 0.8s 0.5s forwards;
+    }
+    .sparkle-row {
+      font-size:1.4rem; margin-bottom:2.5rem;
+      opacity: 0; animation: fadeUp 0.8s 0.6s forwards;
+      letter-spacing: 0.3em;
+    }
+
+    /* ---- CARDS ---- */
+    .section { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding: 0 1.5rem 5rem; }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.2rem;
+      margin-bottom: 3rem;
+    }
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.8rem 1.5rem;
+      text-align: center;
+      opacity:0; animation: fadeUp 0.6s forwards;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .info-card:hover { border-color: rgba(228,199,107,0.35); transform: translateY(-3px); }
+    .info-card:nth-child(1) { animation-delay:0.7s; }
+    .info-card:nth-child(2) { animation-delay:0.8s; }
+    .info-card:nth-child(3) { animation-delay:0.9s; }
+    .info-card:nth-child(4) { animation-delay:1.0s; }
+    .info-icon { font-size:2rem; margin-bottom:0.8rem; }
+    .info-label {
+      font-size:0.7rem; text-transform:uppercase; letter-spacing:0.15em;
+      color: var(--gold); margin-bottom:0.4rem;
+    }
+    .info-value {
+      font-family:'Cormorant Garamond', serif;
+      font-size:1.3rem; font-weight:400;
+    }
+    .info-note { font-size:0.8rem; color:var(--text-dim); margin-top:0.3rem; }
+
+    /* ---- VOTE CARDS ---- */
+    .vote-section-title {
+      font-family:'Cormorant Garamond', serif;
+      font-size:clamp(1.6rem, 4vw, 2.4rem); font-weight:300;
+      margin-bottom:1.5rem;
+      opacity:0; animation: fadeUp 0.6s 1.1s forwards;
+    }
+    .vote-grid {
+      display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap:1.4rem; margin-bottom:3rem;
+    }
+    .vote-card {
+      border-radius:20px; padding:2rem;
+      text-decoration:none; color:var(--text);
+      border:1px solid var(--border);
+      display:flex; flex-direction:column; gap:0.8rem;
+      transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+      opacity:0; animation: fadeUp 0.6s forwards;
+      position:relative; overflow:hidden;
+    }
+    .vote-card::before {
+      content:''; position:absolute; inset:0;
+      background: var(--card-grad); opacity:0.12;
+      transition: opacity 0.3s;
+    }
+    .vote-card:hover { transform:translateY(-5px); }
+    .vote-card:hover::before { opacity:0.22; }
+    .vote-card.setlist { --card-grad: linear-gradient(135deg, #f06896, #c4aff0); animation-delay:1.2s; }
+    .vote-card.surprise { --card-grad: linear-gradient(135deg, #e4c76b, #5cc8c8); animation-delay:1.3s; }
+    .vote-card:hover { border-color: rgba(228,199,107,0.4); box-shadow: 0 8px 32px rgba(228,199,107,0.08); }
+    .vote-card-emoji { font-size:2.5rem; }
+    .vote-card-title {
+      font-family:'Cormorant Garamond', serif;
+      font-size:1.6rem; font-weight:400;
+    }
+    .vote-card-desc { font-size:0.9rem; color:var(--text-dim); line-height:1.5; }
+    .vote-card-cta {
+      margin-top:0.5rem;
+      display:inline-flex; align-items:center; gap:0.4rem;
+      font-size:0.8rem; font-weight:500; letter-spacing:0.08em;
+      text-transform:uppercase; color:var(--gold);
+    }
+
+    /* ---- HOW IT WORKS ---- */
+    .how-title {
+      font-family:'Cormorant Garamond', serif;
+      font-size:clamp(1.6rem, 4vw, 2.4rem); font-weight:300;
+      margin-bottom:1.5rem;
+      opacity:0; animation: fadeUp 0.6s 1.4s forwards;
+    }
+    .steps {
+      display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap:1.2rem; margin-bottom:3rem;
+    }
+    .step {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:16px; padding:1.5rem;
+      opacity:0; animation: fadeUp 0.6s forwards;
+    }
+    .step:nth-child(1) { animation-delay:1.5s; }
+    .step:nth-child(2) { animation-delay:1.6s; }
+    .step:nth-child(3) { animation-delay:1.7s; }
+    .step:nth-child(4) { animation-delay:1.8s; }
+    .step-num {
+      font-family:'Cormorant Garamond', serif;
+      font-size:2.5rem; font-weight:300; color:var(--gold);
+      opacity:0.5; line-height:1;
+      margin-bottom:0.6rem;
+    }
+    .step-text { font-size:0.9rem; color:var(--text-dim); line-height:1.5; }
+    .step-text strong { color:var(--text); font-weight:500; }
+
+    /* ---- ERAS TIMELINE ---- */
+    .eras-title {
+      font-family:'Cormorant Garamond', serif;
+      font-size:clamp(1.6rem, 4vw, 2.4rem); font-weight:300;
+      margin-bottom:1.5rem;
+      opacity:0; animation: fadeUp 0.6s 1.9s forwards;
+    }
+    .eras-strip {
+      display:flex; flex-wrap:wrap; gap:0.7rem; margin-bottom:4rem;
+      opacity:0; animation: fadeUp 0.6s 2s forwards;
+    }
+    .era-chip {
+      padding:0.45rem 1rem; border-radius:20px;
+      font-size:0.8rem; font-weight:400;
+      border:1px solid; letter-spacing:0.04em;
+      transition: transform 0.2s;
+    }
+    .era-chip:hover { transform:scale(1.05); }
+
+    /* ---- FOOTER ---- */
+    footer {
+      position:relative; z-index:1; text-align:center;
+      padding:2rem; color:var(--text-dim); font-size:0.8rem;
+      border-top:1px solid var(--border);
+    }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    @media (max-width:600px) {
+      nav { padding:0 1rem; }
+      .nav-links a { padding:0.4rem 0.6rem; font-size:0.8rem; }
+      .hero { padding:5rem 1.5rem 3rem; }
+      .section { padding: 0 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<nav>
+  <a class="nav-logo" href="index.html">✦ Eras Karaoke</a>
+  <div class="nav-links">
+    <a href="index.html" class="active">Home</a>
+    <a href="setlist.html">Setlist Vote</a>
+    <a href="surprise.html">Surprise Song</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">✦ An evening to remember ✦</div>
+  <h1 class="hero-title">The <em>Eras</em> Tour</h1>
+  <div class="hero-sub">Karaoke Night</div>
+  <div class="sparkle-row">✨ 🎤 ✨ 🎤 ✨</div>
+</div>
+
+<div class="section">
+
+  <!-- Event info cards -->
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-icon">📅</div>
+      <div class="info-label">Date</div>
+      <div class="info-value">Update Me!</div>
+      <div class="info-note">Edit index.html to fill in your date</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">📍</div>
+      <div class="info-label">Venue</div>
+      <div class="info-value">Your Place!</div>
+      <div class="info-note">Add your venue details here</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">⏱️</div>
+      <div class="info-label">Time Slot</div>
+      <div class="info-value">2 Hours</div>
+      <div class="info-note">~20–25 songs at full pace</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">🎶</div>
+      <div class="info-label">Format</div>
+      <div class="info-value">Eras Order</div>
+      <div class="info-note">Sing through the setlist era by era</div>
+    </div>
+  </div>
+
+  <!-- Vote links -->
+  <h2 class="vote-section-title">Cast Your Votes</h2>
+  <div class="vote-grid">
+    <a class="vote-card setlist" href="setlist.html">
+      <div class="vote-card-emoji">🎵</div>
+      <div class="vote-card-title">Setlist Vote</div>
+      <div class="vote-card-desc">
+        Vote every song from the Eras Tour setlist — covering both the original US leg and the updated European leg — in or out of your karaoke night.
+      </div>
+      <div class="vote-card-cta">Start Voting →</div>
+    </a>
+    <a class="vote-card surprise" href="surprise.html">
+      <div class="vote-card-emoji">🌟</div>
+      <div class="vote-card-title">Surprise Song Vote</div>
+      <div class="vote-card-desc">
+        Every night on the Eras Tour, Taylor performed two surprise songs from her entire discography. Vote for which one you want at your karaoke night!
+      </div>
+      <div class="vote-card-cta">Vote Now →</div>
+    </a>
+  </div>
+
+  <!-- How it works -->
+  <h2 class="how-title">How the Night Works</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-text"><strong>Vote on the setlist.</strong> Each song from the Eras Tour gets an In or Out vote. The crowd decides what makes the cut for your 2-hour slot.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-text"><strong>Pick a surprise song.</strong> Browse Taylor's full discography and vote for the wildcard song of the night — the deeper cut everyone secretly wants.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-text"><strong>Check the results.</strong> Each voting page shows a live tally so you can see which songs are winning the crowd over in real time.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-text"><strong>Sing your hearts out.</strong> Work through the voted-in songs era by era — friendship bracelets optional, knowing every word is mandatory.</div>
+    </div>
+  </div>
+
+  <!-- Era chips -->
+  <h2 class="eras-title">Tonight's Eras</h2>
+  <div class="eras-strip">
+    <span class="era-chip" style="color:#ff6b9d;border-color:rgba(255,107,157,0.35);background:rgba(255,107,157,0.07)">💗 Lover</span>
+    <span class="era-chip" style="color:#e8c44a;border-color:rgba(232,196,74,0.35);background:rgba(232,196,74,0.07)">✨ Fearless</span>
+    <span class="era-chip" style="color:#d95050;border-color:rgba(217,80,80,0.35);background:rgba(217,80,80,0.07)">🍂 Red</span>
+    <span class="era-chip" style="color:#b580d4;border-color:rgba(181,128,212,0.35);background:rgba(181,128,212,0.07)">🌙 Speak Now</span>
+    <span class="era-chip" style="color:#aaaaaa;border-color:rgba(170,170,170,0.35);background:rgba(170,170,170,0.07)">🐍 Reputation</span>
+    <span class="era-chip" style="color:#9db8c7;border-color:rgba(157,184,199,0.35);background:rgba(157,184,199,0.07)">🌲 Folklore</span>
+    <span class="era-chip" style="color:#c49a6c;border-color:rgba(196,154,108,0.35);background:rgba(196,154,108,0.07)">🍁 Evermore</span>
+    <span class="era-chip" style="color:#7ec8e8;border-color:rgba(126,200,232,0.35);background:rgba(126,200,232,0.07)">🏙️ 1989</span>
+    <span class="era-chip" style="color:#d4c0e0;border-color:rgba(212,192,224,0.35);background:rgba(212,192,224,0.07)">🥀 TTPD</span>
+    <span class="era-chip" style="color:#8888dd;border-color:rgba(136,136,221,0.35);background:rgba(136,136,221,0.07)">🌌 Midnights</span>
+  </div>
+
+</div>
+
+<footer>
+  <p>Made with ✨ for the Swifties. All votes saved locally to this device.</p>
+</footer>
+
+<script>
+  // Starfield canvas animation
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function initStars() {
+    stars = [];
+    const count = Math.floor((W * H) / 6000);
+    for (let i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.2 + 0.2,
+        alpha: Math.random() * 0.7 + 0.1,
+        speed: Math.random() * 0.3 + 0.05,
+        twinkleOffset: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  // A handful of "sparkle" stars that animate bigger
+  const sparkles = [];
+  function initSparkles() {
+    for (let i = 0; i < 12; i++) {
+      sparkles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.02 + 0.01
+      });
+    }
+  }
+
+  let t = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.01;
+
+    // Normal stars
+    stars.forEach(s => {
+      const a = s.alpha * (0.6 + 0.4 * Math.sin(t * s.speed + s.twinkleOffset));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,240,${a})`;
+      ctx.fill();
+    });
+
+    // Sparkle stars (cross shape)
+    sparkles.forEach(sp => {
+      sp.phase += sp.speed;
+      const pulse = (Math.sin(sp.phase) + 1) / 2;
+      const size  = 3 + pulse * 5;
+      const alpha = 0.15 + pulse * 0.5;
+      ctx.save();
+      ctx.translate(sp.x, sp.y);
+      ctx.strokeStyle = `rgba(228,199,107,${alpha})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(-size,0); ctx.lineTo(size,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,-size); ctx.lineTo(0,size); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-size*0.6,-size*0.6); ctx.lineTo(size*0.6,size*0.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(size*0.6,-size*0.6); ctx.lineTo(-size*0.6,size*0.6); ctx.stroke();
+      ctx.restore();
+    });
+
+    requestAnimationFrame(draw);
+  }
+
+  resize();
+  initStars();
+  initSparkles();
+  draw();
+  window.addEventListener('resize', () => { resize(); initStars(); });
+</script>
+
+</body>
+</html>

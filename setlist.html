@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setlist Vote — Eras Karaoke ✨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#070710; --surface:rgba(255,255,255,0.05); --border:rgba(255,255,255,0.10);
+      --gold:#e4c76b; --pink:#f06896; --text:#f0ece0; --text-dim:rgba(240,236,224,0.55);
+      --in-color:#5cc896; --out-color:#e05870;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; font-weight:300; min-height:100vh; overflow-x:hidden; }
+    #starfield { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+
+    nav { position:sticky; top:0; z-index:100; background:rgba(7,7,16,0.88); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; justify-content:space-between; height:60px; gap:1rem; }
+    .nav-logo { font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:400; letter-spacing:0.05em; color:var(--gold); text-decoration:none; flex-shrink:0; }
+    .nav-links { display:flex; gap:0.3rem; }
+    .nav-links a { color:var(--text-dim); text-decoration:none; font-size:0.85rem; font-weight:400; letter-spacing:0.04em; padding:0.4rem 0.9rem; border-radius:20px; transition:all 0.2s; }
+    .nav-links a:hover,.nav-links a.active { color:var(--text); background:var(--surface); }
+    .nav-links a.active { color:var(--gold); }
+
+    .sync-badge { display:flex; align-items:center; gap:0.4rem; font-size:0.72rem; font-weight:500; letter-spacing:0.06em; padding:0.3rem 0.7rem; border-radius:12px; border:1px solid; flex-shrink:0; transition:all 0.3s; }
+    .sync-badge.ok      { color:#5cc896; border-color:rgba(92,200,150,0.35); background:rgba(92,200,150,0.08); }
+    .sync-badge.syncing { color:var(--gold); border-color:rgba(228,199,107,0.35); background:rgba(228,199,107,0.08); }
+    .sync-badge.offline { color:#e05870; border-color:rgba(224,88,112,0.35); background:rgba(224,88,112,0.08); }
+    .sync-badge.setup   { color:var(--text-dim); border-color:var(--border); background:var(--surface); }
+    .sync-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+    .sync-dot.pulse { animation:pulse 1s ease-in-out infinite; }
+
+    .setup-banner { position:relative; z-index:2; background:rgba(228,199,107,0.07); border-bottom:1px solid rgba(228,199,107,0.22); padding:0.9rem 2rem; display:flex; align-items:flex-start; gap:1rem; flex-wrap:wrap; }
+    .setup-banner.hidden { display:none; }
+    .setup-banner-text { flex:1; font-size:0.82rem; color:var(--gold); line-height:1.5; }
+    .setup-banner-text strong { font-weight:600; }
+    .setup-banner-text code { background:rgba(228,199,107,0.15); padding:0.1rem 0.4rem; border-radius:4px; font-family:monospace; font-size:0.78rem; }
+
+    .page-header { position:relative; z-index:1; text-align:center; padding:4rem 2rem 2rem; }
+    .page-eyebrow { font-size:0.72rem; letter-spacing:0.22em; text-transform:uppercase; color:var(--gold); margin-bottom:0.8rem; }
+    .page-title { font-family:'Cormorant Garamond',serif; font-size:clamp(2.5rem,7vw,4.5rem); font-weight:300; margin-bottom:0.5rem; }
+    .page-title em { font-style:italic; color:var(--gold); }
+    .page-desc { font-size:0.95rem; color:var(--text-dim); max-width:600px; margin:0 auto 2rem; line-height:1.6; }
+    .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:1rem; }
+    .leg-badge { font-size:0.72rem; font-weight:500; letter-spacing:0.08em; padding:0.3rem 0.75rem; border-radius:12px; }
+    .leg-us   { background:rgba(240,104,150,0.15); color:#f06896; border:1px solid rgba(240,104,150,0.3); }
+    .leg-eu   { background:rgba(126,200,232,0.15); color:#7ec8e8; border:1px solid rgba(126,200,232,0.3); }
+    .leg-both { background:rgba(228,199,107,0.12); color:#e4c76b;  border:1px solid rgba(228,199,107,0.3); }
+
+    .progress-wrap { position:relative; z-index:1; max-width:760px; margin:2rem auto 0; padding:0 1.5rem; }
+    .progress-label { display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-dim); margin-bottom:0.5rem; }
+    .progress-label span:last-child { color:var(--gold); }
+    .progress-track { background:rgba(255,255,255,0.08); border-radius:8px; height:8px; overflow:hidden; }
+    .progress-fill  { height:100%; border-radius:8px; background:linear-gradient(90deg,var(--in-color),var(--gold)); transition:width 0.4s ease; }
+
+    .content { position:relative; z-index:1; max-width:760px; margin:0 auto; padding:1.5rem 1.5rem 5rem; }
+
+    .setlist-actions { display:flex; gap:0.8rem; flex-wrap:wrap; margin-bottom:2.5rem; }
+    .btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.55rem 1.2rem; border-radius:20px; font-family:'Outfit',sans-serif; font-size:0.82rem; font-weight:500; letter-spacing:0.06em; border:none; cursor:pointer; transition:all 0.2s; }
+    .btn-ghost  { background:var(--surface); border:1px solid var(--border); color:var(--text-dim); }
+    .btn-ghost:hover  { color:var(--text); border-color:rgba(255,255,255,0.25); }
+    .btn-gold   { background:rgba(228,199,107,0.12); border:1px solid rgba(228,199,107,0.3); color:var(--gold); }
+    .btn-gold:hover   { background:rgba(228,199,107,0.2); }
+    .btn-danger { background:rgba(224,88,112,0.12); border:1px solid rgba(224,88,112,0.3); color:#e05870; }
+    .btn-danger:hover { background:rgba(224,88,112,0.22); }
+
+    .results-panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:1.5rem; margin-bottom:2rem; }
+    .results-title { font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:400; margin-bottom:1rem; }
+    .results-cols  { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .results-col h4 { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.6rem; }
+    .results-col.in h4  { color:var(--in-color); }
+    .results-col.out h4 { color:var(--out-color); }
+    .results-list { list-style:none; }
+    .results-list li { font-size:0.82rem; color:var(--text-dim); padding:0.2rem 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+    .results-list li:last-child { border:none; }
+    .results-empty { font-size:0.82rem; color:rgba(240,236,224,0.3); font-style:italic; }
+
+    .era-section  { margin-bottom:2.5rem; }
+    .era-header   { display:flex; align-items:center; gap:0.8rem; padding:1rem 1.2rem; border-radius:14px 14px 0 0; border:1px solid var(--border); border-bottom:none; background:rgba(255,255,255,0.03); }
+    .era-emoji    { font-size:1.4rem; }
+    .era-name     { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:400; }
+    .era-count    { margin-left:auto; font-size:0.78rem; color:var(--text-dim); }
+    .songs-list   { border:1px solid var(--border); border-top:none; border-radius:0 0 14px 14px; overflow:hidden; }
+
+    .song-row { display:flex; align-items:center; gap:0.8rem; padding:0.85rem 1.2rem; border-bottom:1px solid rgba(255,255,255,0.05); transition:background 0.2s; }
+    .song-row:last-child { border-bottom:none; }
+    .song-row:hover       { background:rgba(255,255,255,0.03); }
+    .song-row.leading-in  { background:rgba(92,200,150,0.07); }
+    .song-row.leading-out { background:rgba(224,88,112,0.05); }
+    .song-info  { flex:1; min-width:0; }
+    .song-title { font-size:0.95rem; font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .song-badges { display:flex; gap:0.4rem; margin-top:0.25rem; flex-wrap:wrap; align-items:center; }
+    .badge-tiny  { font-size:0.62rem; font-weight:500; letter-spacing:0.07em; padding:0.15rem 0.5rem; border-radius:8px; }
+    .vote-score  { font-size:0.7rem; color:var(--text-dim); }
+
+    .vote-btns { display:flex; gap:0.5rem; flex-shrink:0; }
+    .vote-btn {
+      display:flex; align-items:center; gap:0.3rem; padding:0.35rem 0.8rem; border-radius:20px;
+      font-family:'Outfit',sans-serif; font-size:0.75rem; font-weight:500;
+      border:1px solid; cursor:pointer; transition:all 0.2s; background:transparent;
+    }
+    .vote-btn.in-btn  { border-color:rgba(92,200,150,0.35); color:#5cc896; }
+    .vote-btn.out-btn { border-color:rgba(224,88,112,0.35); color:#e05870; }
+    .vote-btn.in-btn:hover  { background:rgba(92,200,150,0.18); border-color:#5cc896; }
+    .vote-btn.out-btn:hover { background:rgba(224,88,112,0.18); border-color:#e05870; }
+    .vote-count { font-size:0.7rem; opacity:0.85; min-width:0.9rem; text-align:center; }
+    @keyframes bump { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+    .bump { animation:bump 0.2s ease; }
+
+    footer { position:relative; z-index:1; text-align:center; padding:2rem; color:var(--text-dim); font-size:0.8rem; border-top:1px solid var(--border); }
+
+    @media(max-width:600px){
+      nav { padding:0 0.8rem; gap:0.5rem; }
+      .nav-links { display:none; }
+      .song-title { font-size:0.88rem; }
+      .vote-btn { padding:0.3rem 0.55rem; font-size:0.7rem; }
+      .results-cols { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+
+<div class="setup-banner" id="setup-banner">
+  <div>⚙️</div>
+  <div class="setup-banner-text">
+    <strong>Global sync not configured.</strong> Open this file in a text editor, find the <code>CONFIG</code> block near the top of the &lt;script&gt; tag, and paste in your <code>BIN_ID</code> and <code>API_KEY</code>. See <strong>README.md</strong> for the 3-step JSONBin setup. Until then, votes only save in this browser.
+  </div>
+</div>
+
+<nav>
+  <a class="nav-logo" href="index.html">✦ Eras Karaoke</a>
+  <div class="nav-links">
+    <a href="index.html">Home</a>
+    <a href="setlist.html" class="active">Setlist Vote</a>
+    <a href="surprise.html">Surprise Song</a>
+  </div>
+  <div class="sync-badge setup" id="sync-badge">
+    <div class="sync-dot" id="sync-dot"></div>
+    <span id="sync-label">Local only</span>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="page-eyebrow">✦ Cast your vote ✦</div>
+  <h1 class="page-title"><em>In</em> or <em>Out?</em></h1>
+  <p class="page-desc">Every song from the Eras Tour — both the US leg and the European/TTPD update — is below. Tap <strong>Sing</strong> or <strong>Skip</strong> to add your vote. Votes accumulate from all devices in real time. You have ~2 hours — roughly 20–22 songs. Choose wisely.</p>
+  <div class="legend">
+    <span class="leg-badge leg-both">🌍 Both Legs</span>
+    <span class="leg-badge leg-us">🇺🇸 US Leg Only</span>
+    <span class="leg-badge leg-eu">🌙 EU / TTPD Only</span>
+  </div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span id="prog-label">Loading…</span>
+    <span>Target: ~20 songs for 2 hrs</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+</div>
+
+<div class="content">
+  <div class="setlist-actions">
+    <button class="btn btn-gold"   onclick="showResults()">📋 View Results</button>
+    <button class="btn btn-ghost"  onclick="syncNow()">🔄 Sync Now</button>
+    <button class="btn btn-danger" onclick="resetVotes()">✕ Reset All</button>
+  </div>
+
+  <div class="results-panel" id="results-panel" style="display:none">
+    <div class="results-title">✨ Current Results</div>
+    <div class="results-cols">
+      <div class="results-col in">
+        <h4>🎤 Singing Tonight</h4>
+        <ul class="results-list" id="in-list"><li class="results-empty">No clear winners yet</li></ul>
+      </div>
+      <div class="results-col out">
+        <h4>⏭️ Skipping</h4>
+        <ul class="results-list" id="out-list"><li class="results-empty">No clear losers yet</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div id="setlist-container"></div>
+</div>
+
+<footer><p id="footer-note">Votes sync globally via JSONBin · Auto-refreshes every 20 s</p></footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  ✦  CONFIG — Paste your JSONBin credentials below  ✦
+//  See README.md for the 3-step setup (takes ~2 minutes)
+// ═══════════════════════════════════════════════════════════════
+const BIN_ID  = '';   // e.g. '66a1b2c3d4e5f6a7b8c9d0e1'
+const API_KEY = '';   // e.g. '$2a$10$ABCDEFGHIJKLMNOPQRSTUVWXabcdefghijklmn'
+// ═══════════════════════════════════════════════════════════════
+
+const CLOUD   = BIN_ID.length > 0 && API_KEY.length > 0;
+const LOC_KEY = 'erasKaraoke_setlist_v2';
+const POLL_MS = 20000;
+
+// ── Song data ─────────────────────────────────────────
+const ERAS = [
+  { name:"Lover",      emoji:"💗", color:"#ff6b9d", bc:"rgba(255,107,157,0.35)",
+    songs:[
+      {t:"Miss Americana & The Heartbreak Prince", l:"both"},
+      {t:"Cruel Summer",          l:"both"},{t:"The Man",               l:"both"},
+      {t:"You Need to Calm Down", l:"both"},{t:"Lover",                 l:"both"},
+      {t:"The Archer",            l:"us"},
+    ]},
+  { name:"Fearless",   emoji:"✨", color:"#e8c44a", bc:"rgba(232,196,74,0.35)",
+    songs:[{t:"Fearless",l:"both"},{t:"You Belong With Me",l:"both"},{t:"Love Story",l:"both"}]},
+  { name:"Red",        emoji:"🍂", color:"#d95050", bc:"rgba(217,80,80,0.35)",
+    songs:[
+      {t:"22",l:"both"},{t:"We Are Never Ever Getting Back Together",l:"both"},
+      {t:"I Knew You Were Trouble",l:"both"},{t:"All Too Well (10 Minute Version)",l:"both"},
+    ]},
+  { name:"Speak Now",  emoji:"🌙", color:"#b580d4", bc:"rgba(181,128,212,0.35)",
+    songs:[{t:"Enchanted",l:"both"},{t:"Long Live",l:"us"}]},
+  { name:"Reputation", emoji:"🐍", color:"#aaaaaa", bc:"rgba(170,170,170,0.3)",
+    songs:[
+      {t:"...Ready For It?",l:"both"},{t:"Delicate",l:"both"},
+      {t:"Don't Blame Me",l:"both"},{t:"Look What You Made Me Do",l:"both"},
+    ]},
+  { name:"Folklore",   emoji:"🌲", color:"#9db8c7", bc:"rgba(157,184,199,0.35)",
+    songs:[
+      {t:"the 1",l:"us"},{t:"cardigan",l:"both"},{t:"the last great american dynasty",l:"us"},
+      {t:"august",l:"both"},{t:"illicit affairs",l:"both"},{t:"my tears ricochet",l:"us"},{t:"betty",l:"both"},
+    ]},
+  { name:"Evermore",   emoji:"🍁", color:"#c49a6c", bc:"rgba(196,154,108,0.35)",
+    songs:[{t:"'tis the damn season",l:"us"},{t:"tolerate it",l:"us"},{t:"champagne problems",l:"eu"}]},
+  { name:"1989",       emoji:"🏙️", color:"#7ec8e8", bc:"rgba(126,200,232,0.35)",
+    songs:[
+      {t:"Style",l:"both"},{t:"Blank Space",l:"both"},{t:"Shake It Off",l:"both"},
+      {t:"Wildest Dreams",l:"both"},{t:"Bad Blood / Should've Said No",l:"both"},
+    ]},
+  { name:"The Tortured Poets Department", emoji:"🥀", color:"#d4c0e0", bc:"rgba(212,192,224,0.35)",
+    songs:[
+      {t:"Fortnight",l:"eu"},{t:"The Tortured Poets Department",l:"eu"},
+      {t:"My Boy Only Breaks His Favourite Toys",l:"eu"},{t:"Down Bad",l:"eu"},
+      {t:"So High School",l:"eu"},{t:"Who's Afraid of Little Old Me?",l:"eu"},
+      {t:"I Can Do It With a Broken Heart",l:"eu"},
+    ]},
+  { name:"Midnights",  emoji:"🌌", color:"#9090dd", bc:"rgba(144,144,221,0.35)",
+    songs:[
+      {t:"Lavender Haze",l:"both"},{t:"Anti-Hero",l:"both"},{t:"Midnight Rain",l:"both"},
+      {t:"Vigilante Shit",l:"both"},{t:"Bejeweled",l:"both"},{t:"Mastermind",l:"both"},{t:"Karma",l:"both"},
+    ]},
+];
+
+// ── State ─────────────────────────────────────────────
+// votes[key] = { in: N, out: N }
+let votes = {};
+let busy  = false;
+
+const sKey  = (era,t) => era+'||'+t;
+const sid   = k => k.replace(/[^a-z0-9]/gi,'_');
+const legMap = { both:{cls:'leg-both',txt:'🌍 Both'}, us:{cls:'leg-us',txt:'🇺🇸 US Only'}, eu:{cls:'leg-eu',txt:'🌙 EU/TTPD'} };
+
+// ── Local storage ─────────────────────────────────────
+const lSave = () => { try { localStorage.setItem(LOC_KEY, JSON.stringify(votes)); } catch(e){} };
+const lLoad = () => { try { votes = JSON.parse(localStorage.getItem(LOC_KEY))||{}; } catch(e){ votes={}; } };
+
+// ── JSONBin helpers ───────────────────────────────────
+const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const HDR = { 'Content-Type':'application/json', 'X-Master-Key': API_KEY };
+
+async function cLoad() {
+  const r = await fetch(BIN_URL+'/latest', {headers:HDR});
+  if (!r.ok) throw new Error(r.status);
+  return ((await r.json()).record || {}).setlist || {};
+}
+async function cSave(data) {
+  const r0 = await fetch(BIN_URL+'/latest', {headers:HDR});
+  if (!r0.ok) throw new Error(r0.status);
+  const rec = (await r0.json()).record || {};
+  rec.setlist = data;
+  const r1 = await fetch(BIN_URL, {method:'PUT', headers:HDR, body:JSON.stringify(rec)});
+  if (!r1.ok) throw new Error(r1.status);
+}
+
+// ── Sync status ───────────────────────────────────────
+function setSync(s) {
+  const b=document.getElementById('sync-badge'),d=document.getElementById('sync-dot'),l=document.getElementById('sync-label');
+  b.className='sync-badge '+s;
+  d.className='sync-dot'+(s==='syncing'?' pulse':'');
+  l.textContent={ok:'Synced',syncing:'Syncing…',offline:'Offline',setup:'Local only'}[s];
+}
+
+// ── Load ──────────────────────────────────────────────
+async function loadVotes(quiet=false) {
+  if (busy) return;
+  busy=true;
+  if (!quiet) setSync('syncing');
+  try {
+    if (CLOUD) { votes=await cLoad(); lSave(); setSync('ok'); }
+    else        { lLoad(); setSync('setup'); }
+  } catch(e) { console.warn(e); lLoad(); setSync('offline'); }
+  busy=false;
+  refreshAll(); updateProgress();
+  if (document.getElementById('results-panel').style.display!=='none') renderResults();
+}
+
+// ── Vote ──────────────────────────────────────────────
+async function castVote(era, title, side) {
+  const k=sKey(era,title);
+  if (!votes[k]) votes[k]={in:0,out:0};
+  votes[k][side]=(votes[k][side]||0)+1;
+  lSave(); refreshRow(era,title); updateProgress();
+  if (document.getElementById('results-panel').style.display!=='none') renderResults();
+  // bump animation
+  const el=document.getElementById('vc-'+side+'-'+sid(k));
+  if (el){el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');}
+  if (CLOUD) {
+    setSync('syncing');
+    try { await cSave(votes); setSync('ok'); } catch(e){ console.warn(e); setSync('offline'); }
+  }
+}
+
+// ── DOM ───────────────────────────────────────────────
+function buildSetlist() {
+  const c=document.getElementById('setlist-container'); c.innerHTML='';
+  ERAS.forEach(era=>{
+    const d=document.createElement('div'); d.className='era-section';
+    d.innerHTML=`
+      <div class="era-header" style="border-color:${era.bc};background:${era.color}0a">
+        <span class="era-emoji">${era.emoji}</span>
+        <span class="era-name" style="color:${era.color}">${era.name}</span>
+        <span class="era-count">${era.songs.length} songs</span>
+      </div>
+      <div class="songs-list" id="sl-${sid(era.name)}"></div>`;
+    c.appendChild(d);
+    const list=document.getElementById('sl-'+sid(era.name));
+    era.songs.forEach(s=>list.appendChild(makeRow(era,s)));
+  });
+}
+
+function makeRow(era, song) {
+  const k=sKey(era.name,song.t), vd=votes[k]||{in:0,out:0};
+  const ll=legMap[song.l];
+  const lead=vd.in>vd.out?'leading-in':vd.out>vd.in?'leading-out':'';
+  const r=document.createElement('div');
+  r.className='song-row '+lead; r.id='row-'+sid(k);
+  r.innerHTML=`
+    <div class="song-info">
+      <div class="song-title">${song.t}</div>
+      <div class="song-badges">
+        <span class="badge-tiny ${ll.cls}">${ll.txt}</span>
+        <span class="vote-score" id="sc-${sid(k)}">${scoreText(vd)}</span>
+      </div>
+    </div>
+    <div class="vote-btns">
+      <button class="vote-btn in-btn"  onclick="castVote('${era.name.replace(/'/g,"\\'")}','${song.t.replace(/'/g,"\\'")}','in')">
+        🎤 Sing <span class="vote-count" id="vc-in-${sid(k)}">${vd.in||0}</span>
+      </button>
+      <button class="vote-btn out-btn" onclick="castVote('${era.name.replace(/'/g,"\\'")}','${song.t.replace(/'/g,"\\'")}','out')">
+        ⏭️ Skip <span class="vote-count" id="vc-out-${sid(k)}">${vd.out||0}</span>
+      </button>
+    </div>`;
+  return r;
+}
+
+const scoreText = d => {
+  const t=(d.in||0)+(d.out||0); if(!t) return '';
+  if(d.in>d.out)  return `✅ ${d.in}–${d.out}`;
+  if(d.out>d.in)  return `❌ ${d.out}–${d.in}`;
+  return `🔴 Tied ${d.in}–${d.in}`;
+};
+
+function refreshRow(era,title){
+  const k=sKey(era,title),vd=votes[k]||{in:0,out:0};
+  const r=document.getElementById('row-'+sid(k)); if(!r) return;
+  r.className='song-row '+(vd.in>vd.out?'leading-in':vd.out>vd.in?'leading-out':'');
+  const get=id=>document.getElementById(id);
+  const iEl=get('vc-in-'+sid(k)),oEl=get('vc-out-'+sid(k)),sEl=get('sc-'+sid(k));
+  if(iEl) iEl.textContent=vd.in||0;
+  if(oEl) oEl.textContent=vd.out||0;
+  if(sEl) sEl.textContent=scoreText(vd);
+}
+function refreshAll(){ ERAS.forEach(e=>e.songs.forEach(s=>refreshRow(e.name,s.t))); }
+
+function updateProgress(){
+  let n=0;
+  ERAS.forEach(e=>e.songs.forEach(s=>{ const d=votes[sKey(e.name,s.t)]||{}; if((d.in||0)>(d.out||0)) n++; }));
+  document.getElementById('prog-fill').style.width=Math.min(100,(n/20)*100)+'%';
+  document.getElementById('prog-label').textContent=`${n} song${n!==1?'s':''} currently winning`;
+}
+
+function showResults(){
+  const p=document.getElementById('results-panel'),v=p.style.display!=='none';
+  p.style.display=v?'none':'block'; if(!v) renderResults();
+}
+function renderResults(){
+  const i=[],o=[];
+  ERAS.forEach(e=>e.songs.forEach(s=>{
+    const d=votes[sKey(e.name,s.t)]||{};
+    if((d.in||0)>(d.out||0))  i.push(`${e.emoji} ${s.t} (${d.in}–${d.out})`);
+    if((d.out||0)>(d.in||0))  o.push(`${e.emoji} ${s.t} (${d.out}–${d.in})`);
+  }));
+  document.getElementById('in-list').innerHTML  = i.length?i.map(x=>`<li>${x}</li>`).join(''):'<li class="results-empty">No clear winners yet</li>';
+  document.getElementById('out-list').innerHTML = o.length?o.map(x=>`<li>${x}</li>`).join(''):'<li class="results-empty">No clear losers yet</li>';
+}
+
+async function syncNow(){ await loadVotes(); }
+
+async function resetVotes(){
+  if(!confirm('Reset ALL setlist votes for everyone? Cannot be undone.')) return;
+  votes={}; lSave();
+  if(CLOUD){ setSync('syncing'); try{await cSave({});setSync('ok');}catch(e){setSync('offline');} }
+  refreshAll(); updateProgress();
+  document.getElementById('results-panel').style.display='none';
+}
+
+// ── Init ──────────────────────────────────────────────
+if(CLOUD){
+  document.getElementById('setup-banner').classList.add('hidden');
+} else {
+  document.getElementById('footer-note').textContent='Votes saved to this browser only · Add JSONBin credentials for global sync';
+}
+buildSetlist();
+loadVotes();
+setInterval(()=>loadVotes(true), POLL_MS);
+
+// ── Stars ─────────────────────────────────────────────
+(function(){
+  const c=document.getElementById('starfield'),x=c.getContext('2d'); let W,H,s=[];
+  function r(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  function init(){s=[];const n=Math.floor(W*H/7000);for(let i=0;i<n;i++)s.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.1+0.2,a:Math.random()*0.6+0.1,sp:Math.random()*0.3+0.05,o:Math.random()*Math.PI*2});}
+  let t=0;function d(){x.clearRect(0,0,W,H);t+=0.01;s.forEach(p=>{const a=p.a*(0.5+0.5*Math.sin(t*p.sp+p.o));x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fillStyle=`rgba(255,255,240,${a})`;x.fill();});requestAnimationFrame(d);}
+  r();init();d();addEventListener('resize',()=>{r();init();});
+})();
+</script>
+</body>
+</html>
