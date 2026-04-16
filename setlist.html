@@ -106,6 +106,8 @@
     .vote-btn.out-btn { border-color:rgba(224,88,112,0.35); color:#e05870; }
     .vote-btn.in-btn:hover  { background:rgba(92,200,150,0.18); border-color:#5cc896; }
     .vote-btn.out-btn:hover { background:rgba(224,88,112,0.18); border-color:#e05870; }
+    .vote-btn.in-btn.active  { background:rgba(92,200,150,0.22); border-color:#5cc896; color:#5cc896; font-weight:600; box-shadow:0 0 0 1px #5cc89640; }
+    .vote-btn.out-btn.active { background:rgba(224,88,112,0.22); border-color:#e05870; color:#e05870; font-weight:600; box-shadow:0 0 0 1px #e0587040; }
     .vote-count { font-size:0.7rem; opacity:0.85; min-width:0.9rem; text-align:center; }
     @keyframes bump { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
     .bump { animation:bump 0.2s ease; }
@@ -194,8 +196,8 @@
 //  ✦  CONFIG — Paste your JSONBin credentials below  ✦
 //  See README.md for the 3-step setup (takes ~2 minutes)
 // ═══════════════════════════════════════════════════════════════
-const BIN_ID  = '';   // e.g. '66a1b2c3d4e5f6a7b8c9d0e1'
-const API_KEY = '';   // e.g. '$2a$10$ABCDEFGHIJKLMNOPQRSTUVWXabcdefghijklmn'
+const BIN_ID  = '69df882daaba8821970083a0';   // e.g. '66a1b2c3d4e5f6a7b8c9d0e1'
+const API_KEY = '$2a$10$ruMZ8WxzmZUd85YxeAxe8eNJPUrQQV1DEgUwLXMQH.Om5if.AnVHG';   // e.g. '$2a$10$ABCDEFGHIJKLMNOPQRSTUVWXabcdefghijklmn'
 // ═══════════════════════════════════════════════════════════════
 
 const CLOUD   = BIN_ID.length > 0 && API_KEY.length > 0;
@@ -231,16 +233,16 @@ const ERAS = [
       {t:"august",l:"both"},{t:"illicit affairs",l:"both"},{t:"my tears ricochet",l:"us"},{t:"betty",l:"both"},
     ]},
   { name:"Evermore",   emoji:"🍁", color:"#c49a6c", bc:"rgba(196,154,108,0.35)",
-    songs:[{t:"'tis the damn season",l:"us"},{t:"tolerate it",l:"us"},{t:"champagne problems",l:"eu"}]},
+    songs:[{t:"'tis the damn season",l:"us"}, {t:"tolerate it",l:"us"},{t:"champagne problems",l:"both"},{t:"willow",l:"us"},{t:"majorie",l:"both"}]},
   { name:"1989",       emoji:"🏙️", color:"#7ec8e8", bc:"rgba(126,200,232,0.35)",
     songs:[
       {t:"Style",l:"both"},{t:"Blank Space",l:"both"},{t:"Shake It Off",l:"both"},
-      {t:"Wildest Dreams",l:"both"},{t:"Bad Blood / Should've Said No",l:"both"},
+      {t:"Wildest Dreams",l:"both"},{t:"Bad Blood",l:"both"},
     ]},
   { name:"The Tortured Poets Department", emoji:"🥀", color:"#d4c0e0", bc:"rgba(212,192,224,0.35)",
     songs:[
       {t:"Fortnight",l:"eu"},{t:"The Tortured Poets Department",l:"eu"},
-      {t:"My Boy Only Breaks His Favourite Toys",l:"eu"},{t:"Down Bad",l:"eu"},
+      {t:"Down Bad",l:"eu"},
       {t:"So High School",l:"eu"},{t:"Who's Afraid of Little Old Me?",l:"eu"},
       {t:"I Can Do It With a Broken Heart",l:"eu"},
     ]},
@@ -253,8 +255,9 @@ const ERAS = [
 
 // ── State ─────────────────────────────────────────────
 // votes[key] = { in: N, out: N }
-let votes = {};
-let busy  = false;
+let votes        = {};
+let sessionVotes = {}; // this device's current vote per song — stored in localStorage
+let busy         = false;
 
 const sKey  = (era,t) => era+'||'+t;
 const sid   = k => k.replace(/[^a-z0-9]/gi,'_');
@@ -263,6 +266,10 @@ const legMap = { both:{cls:'leg-both',txt:'🌍 Both'}, us:{cls:'leg-us',txt:'�
 // ── Local storage ─────────────────────────────────────
 const lSave = () => { try { localStorage.setItem(LOC_KEY, JSON.stringify(votes)); } catch(e){} };
 const lLoad = () => { try { votes = JSON.parse(localStorage.getItem(LOC_KEY))||{}; } catch(e){ votes={}; } };
+
+const SESSION_KEY = 'erasKaraoke_sessionVotes_v2';
+const sSave = () => { try { localStorage.setItem(SESSION_KEY, JSON.stringify(sessionVotes)); } catch(e){} };
+const sLoad = () => { try { sessionVotes = JSON.parse(localStorage.getItem(SESSION_KEY))||{}; } catch(e){ sessionVotes={}; } };
 
 // ── JSONBin helpers ───────────────────────────────────
 const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
@@ -299,6 +306,7 @@ async function loadVotes(quiet=false) {
     if (CLOUD) { votes=await cLoad(); lSave(); setSync('ok'); }
     else        { lLoad(); setSync('setup'); }
   } catch(e) { console.warn(e); lLoad(); setSync('offline'); }
+  sLoad(); // always restore this device's vote selections from localStorage
   busy=false;
   refreshAll(); updateProgress();
   if (document.getElementById('results-panel').style.display!=='none') renderResults();
@@ -306,14 +314,33 @@ async function loadVotes(quiet=false) {
 
 // ── Vote ──────────────────────────────────────────────
 async function castVote(era, title, side) {
-  const k=sKey(era,title);
-  if (!votes[k]) votes[k]={in:0,out:0};
-  votes[k][side]=(votes[k][side]||0)+1;
-  lSave(); refreshRow(era,title); updateProgress();
+  const k    = sKey(era, title);
+  const prev = sessionVotes[k]; // what this device voted before (or undefined)
+  if (!votes[k]) votes[k] = {in:0, out:0};
+
+  if (prev === side) {
+    // Clicked the same button again — remove vote
+    votes[k][side] = Math.max(0, (votes[k][side]||0) - 1);
+    delete sessionVotes[k];
+  } else {
+    // Switching to the other side, or voting for the first time
+    if (prev) {
+      // Undo the previous vote on the other side
+      votes[k][prev] = Math.max(0, (votes[k][prev]||0) - 1);
+    }
+    votes[k][side] = (votes[k][side]||0) + 1;
+    sessionVotes[k] = side;
+  }
+
+  lSave(); sSave();
+  refreshRow(era, title); updateProgress();
   if (document.getElementById('results-panel').style.display!=='none') renderResults();
-  // bump animation
-  const el=document.getElementById('vc-'+side+'-'+sid(k));
-  if (el){el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');}
+
+  // Bump animation on whichever count just changed
+  const bump = sessionVotes[k] || prev; // the side that was just touched
+  const el = document.getElementById('vc-'+bump+'-'+sid(k));
+  if (el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+
   if (CLOUD) {
     setSync('syncing');
     try { await cSave(votes); setSync('ok'); } catch(e){ console.warn(e); setSync('offline'); }
@@ -342,6 +369,7 @@ function makeRow(era, song) {
   const k=sKey(era.name,song.t), vd=votes[k]||{in:0,out:0};
   const ll=legMap[song.l];
   const lead=vd.in>vd.out?'leading-in':vd.out>vd.in?'leading-out':'';
+  const myVote=sessionVotes[k]; // 'in', 'out', or undefined
   const r=document.createElement('div');
   r.className='song-row '+lead; r.id='row-'+sid(k);
   r.innerHTML=`
@@ -353,10 +381,10 @@ function makeRow(era, song) {
       </div>
     </div>
     <div class="vote-btns">
-      <button class="vote-btn in-btn"  onclick="castVote('${era.name.replace(/'/g,"\\'")}','${song.t.replace(/'/g,"\\'")}','in')">
+      <button class="vote-btn in-btn ${myVote==='in'?'active':''}"  onclick="castVote('${era.name.replace(/'/g,"\\'")}','${song.t.replace(/'/g,"\\'")}','in')">
         🎤 Sing <span class="vote-count" id="vc-in-${sid(k)}">${vd.in||0}</span>
       </button>
-      <button class="vote-btn out-btn" onclick="castVote('${era.name.replace(/'/g,"\\'")}','${song.t.replace(/'/g,"\\'")}','out')">
+      <button class="vote-btn out-btn ${myVote==='out'?'active':''}" onclick="castVote('${era.name.replace(/'/g,"\\'")}','${song.t.replace(/'/g,"\\'")}','out')">
         ⏭️ Skip <span class="vote-count" id="vc-out-${sid(k)}">${vd.out||0}</span>
       </button>
     </div>`;
@@ -379,6 +407,11 @@ function refreshRow(era,title){
   if(iEl) iEl.textContent=vd.in||0;
   if(oEl) oEl.textContent=vd.out||0;
   if(sEl) sEl.textContent=scoreText(vd);
+  // Update active state for this device's vote
+  const myVote=sessionVotes[k];
+  const inBtn=r.querySelector('.in-btn'), outBtn=r.querySelector('.out-btn');
+  if(inBtn)  inBtn.classList.toggle('active',  myVote==='in');
+  if(outBtn) outBtn.classList.toggle('active', myVote==='out');
 }
 function refreshAll(){ ERAS.forEach(e=>e.songs.forEach(s=>refreshRow(e.name,s.t))); }
 
@@ -408,7 +441,7 @@ async function syncNow(){ await loadVotes(); }
 
 async function resetVotes(){
   if(!confirm('Reset ALL setlist votes for everyone? Cannot be undone.')) return;
-  votes={}; lSave();
+  votes={}; sessionVotes={}; lSave(); sSave();
   if(CLOUD){ setSync('syncing'); try{await cSave({});setSync('ok');}catch(e){setSync('offline');} }
   refreshAll(); updateProgress();
   document.getElementById('results-panel').style.display='none';

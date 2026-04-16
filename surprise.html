@@ -94,8 +94,8 @@
       border:1px solid rgba(228,199,107,0.3); color:var(--gold); cursor:pointer;
       background:transparent; flex-shrink:0; transition:all 0.2s;
     }
-    .vote-star-btn:hover,.vote-star-btn.voted { background:rgba(228,199,107,0.18); border-color:var(--gold); }
-    .vote-star-btn.voted { font-weight:600; }
+    .vote-star-btn:hover,.vote-star-btn.active { background:rgba(228,199,107,0.18); border-color:var(--gold); }
+    .vote-star-btn.active { font-weight:600; box-shadow:0 0 0 1px rgba(228,199,107,0.4); }
     .vote-star-count { font-size:0.68rem; opacity:0.85; }
     @keyframes bump { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
     .bump { animation:bump 0.2s ease; }
@@ -207,8 +207,9 @@ const ALBUMS = [
 
 // ── State ─────────────────────────────────────────────
 // votes[key] = number
-let votes     = {};
-let busy      = false;
+let votes        = {};
+let sessionVotes = {}; // this device's current vote per song
+let busy         = false;
 let activeAlb = 'all';
 let searchQ   = '';
 
@@ -218,6 +219,10 @@ const sid  = k => k.replace(/[^a-z0-9]/gi,'_');
 // ── Local ─────────────────────────────────────────────
 const lSave = () => { try { localStorage.setItem(LOC_KEY, JSON.stringify(votes)); } catch(e){} };
 const lLoad = () => { try { votes = JSON.parse(localStorage.getItem(LOC_KEY))||{}; } catch(e){ votes={}; } };
+
+const SESSION_KEY = 'erasKaraoke_surpriseSession_v2';
+const sSave = () => { try { localStorage.setItem(SESSION_KEY, JSON.stringify(sessionVotes)); } catch(e){} };
+const sLoad = () => { try { sessionVotes = JSON.parse(localStorage.getItem(SESSION_KEY))||{}; } catch(e){ sessionVotes={}; } };
 
 // ── JSONBin ───────────────────────────────────────────
 const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
@@ -254,6 +259,7 @@ async function loadVotes(quiet=false) {
     if (CLOUD) { votes=await cLoad(); lSave(); setSync('ok'); }
     else        { lLoad(); setSync('setup'); }
   } catch(e) { console.warn(e); lLoad(); setSync('offline'); }
+  sLoad();
   busy=false;
   refreshAllTiles();
   updateTopPicks();
@@ -261,17 +267,35 @@ async function loadVotes(quiet=false) {
 
 // ── Vote ──────────────────────────────────────────────
 async function castVote(albName, song) {
-  const k=vKey(albName,song);
-  votes[k]=(votes[k]||0)+1;
-  lSave();
-  // Update tile
-  const tile=document.getElementById('tile-'+sid(k));
-  if (tile) {
-    tile.classList.add('voted');
-    const btn=tile.querySelector('.vote-star-btn'); if(btn) btn.classList.add('voted');
-    const vc=document.getElementById('vc-'+sid(k));
-    if(vc){ vc.textContent=votes[k]; vc.classList.remove('bump'); void vc.offsetWidth; vc.classList.add('bump'); }
+  const k    = vKey(albName, song);
+  const voted = sessionVotes[k]; // true if this device already voted for this song
+
+  if (voted) {
+    // Toggle off — remove the vote
+    votes[k] = Math.max(0, (votes[k]||0) - 1);
+    delete sessionVotes[k];
+  } else {
+    // Add the vote
+    votes[k] = (votes[k]||0) + 1;
+    sessionVotes[k] = true;
   }
+
+  lSave(); sSave();
+
+  // Update tile
+  const isNowVoted = !!sessionVotes[k];
+  const tile = document.getElementById('tile-'+sid(k));
+  if (tile) {
+    tile.classList.toggle('voted', isNowVoted);
+    const btn = tile.querySelector('.vote-star-btn');
+    if (btn) btn.classList.toggle('active', isNowVoted);
+    const vc = document.getElementById('vc-'+sid(k));
+    if (vc) {
+      vc.textContent = votes[k]||0;
+      vc.classList.remove('bump'); void vc.offsetWidth; vc.classList.add('bump');
+    }
+  }
+
   updateTopPicks();
   if (CLOUD) {
     setSync('syncing');
@@ -281,11 +305,11 @@ async function castVote(albName, song) {
 
 function refreshAllTiles() {
   ALBUMS.forEach(alb=>alb.songs.forEach(song=>{
-    const k=vKey(alb.name,song), cnt=votes[k]||0;
+    const k=vKey(alb.name,song), cnt=votes[k]||0, isVoted=!!sessionVotes[k];
     const tile=document.getElementById('tile-'+sid(k)); if(!tile) return;
-    tile.classList.toggle('voted',cnt>0);
-    const btn=tile.querySelector('.vote-star-btn'); if(btn) btn.classList.toggle('voted',cnt>0);
-    const vc=document.getElementById('vc-'+sid(k)); if(vc) vc.textContent=cnt||0;
+    tile.classList.toggle('voted', isVoted);
+    const btn=tile.querySelector('.vote-star-btn'); if(btn) btn.classList.toggle('active', isVoted);
+    const vc=document.getElementById('vc-'+sid(k)); if(vc) vc.textContent=cnt;
   }));
 }
 
@@ -361,15 +385,15 @@ function renderSongs() {
     c.appendChild(sec);
     const grid=document.getElementById('sg-'+sid(alb.name));
     filtered.forEach(song=>{
-      const k=vKey(alb.name,song), cnt=votes[k]||0;
+      const k=vKey(alb.name,song), cnt=votes[k]||0, isVoted=!!sessionVotes[k];
       const tile=document.createElement('div');
-      tile.className='song-tile'+(cnt>0?' voted':'');
+      tile.className='song-tile'+(isVoted?' voted':'');
       tile.id='tile-'+sid(k);
       tile.innerHTML=`
         <div class="song-tile-info">
           <div class="song-tile-title" title="${song}">${song}</div>
         </div>
-        <button class="vote-star-btn ${cnt>0?'voted':''}"
+        <button class="vote-star-btn ${isVoted?'active':''}"
           onclick="castVote('${alb.name.replace(/'/g,"\\'")}','${song.replace(/'/g,"\\'")}')">
           ⭐ <span class="vote-star-count" id="vc-${sid(k)}">${cnt}</span>
         </button>`;
@@ -385,7 +409,7 @@ async function syncNow() { await loadVotes(); }
 
 async function resetVotes() {
   if (!confirm('Reset ALL surprise song votes for everyone? Cannot be undone.')) return;
-  votes={}; lSave();
+  votes={}; sessionVotes={}; lSave(); sSave();
   if (CLOUD){ setSync('syncing'); try{await cSave({});setSync('ok');}catch(e){setSync('offline');} }
   renderSongs(); updateTopPicks();
 }
